@@ -7,6 +7,7 @@ authors = ["Your Name <you@example.com>"]
 [tool.poetry.dependencies]
 python = ">=3.10.0,<3.12"
 yt-dlp = "^2025.2.19"
+python-telegram-bot = "^20.7"
 telegram = "^0.0.1"
 
 [tool.pyright]
