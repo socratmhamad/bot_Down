@@ -1,7 +1,9 @@
 import sys
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+# استخدام python-telegram-bot بدلاً من telegram
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
+from telegram.ext._utils.types import BD, BT, CD, UD
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 
 # إعداد التسجيل للأخطاء
 logging.basicConfig(
