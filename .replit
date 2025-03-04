@@ -11,5 +11,6 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["python3", "main.py"]
+run = ["sh", "-c", "python3 main.py"]
 deploymentTarget = "cloudrun"
+build = ["sh", "-c", "pip install -U yt-dlp python-telegram-bot"]
