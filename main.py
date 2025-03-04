@@ -74,25 +74,43 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("ffmpeg غير مثبت. لا يمكن تنزيل الفيديو.")
         return
 
-    if 'youtube.com' in youtube_url or 'youtu.be' in youtube_url:
-        status_message = await update.message.reply_text("جاري تنزيل الفيديو... يرجى الانتظار")
+    # تحقق أفضل من الرابط وتنظيفه
+    youtube_url = youtube_url.strip()
+    if ('youtube.com' in youtube_url or 'youtu.be' in youtube_url) and ('http://' in youtube_url or 'https://' in youtube_url):
+        status_message = await update.message.reply_text("جاري التحقق من الرابط وتنزيل الفيديو... يرجى الانتظار")
         try:
+            # محاولة أولى بصيغة أكثر مرونة
             ydl_opts = {
-                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                'format': 'best[ext=mp4]/best',  # تبسيط الصيغة
                 'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
                 'merge_output_format': 'mp4',
                 'noplaylist': True,
                 'quiet': False,
+                'verbose': True,  # لطباعة معلومات تشخيصية أكثر
                 'no_warnings': False,
                 'ignoreerrors': True,
                 'geo_bypass': True,
                 'nocheckcertificate': True,
-                'cookiefile': None
+                'cookiefile': None,
+                'extractor_retries': 3,  # محاولات استخراج إضافية
+                'socket_timeout': 30,  # زيادة مهلة الانتظار
+                'concurrent_fragment_downloads': 1  # لتجنب مشاكل التنزيل المتزامن
             }
 
             with YoutubeDL(ydl_opts) as ydl:
+                # استخدم extract_info مع verbose=True لطباعة المزيد من المعلومات
+                info_dict = ydl.extract_info(youtube_url, download=False)
+                
+                if info_dict is None:
+                    raise Exception("فشل في استخراج معلومات الفيديو")
+                
+                # بعد التأكد من صحة البيانات، قم بالتنزيل
                 info_dict = ydl.extract_info(youtube_url, download=True)
                 video_file_path = ydl.prepare_filename(info_dict)
+                
+                # التحقق من وجود الملف فعلياً
+                if not os.path.exists(video_file_path):
+                    raise Exception(f"لم يتم العثور على الملف: {video_file_path}")
                 
                 # التحقق من حجم الملف (حد تليجرام هو 50 ميجابايت)
                 file_size = os.path.getsize(video_file_path) / (1024 * 1024)  # بالميجابايت
@@ -154,6 +172,13 @@ async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_T
             }
 
             with YoutubeDL(ydl_opts) as ydl:
+                # التحقق من معلومات الفيديو أولاً قبل التنزيل
+                info_dict = ydl.extract_info(youtube_url, download=False)
+                
+                if info_dict is None:
+                    raise Exception("فشل في استخراج معلومات الفيديو")
+                
+                # بعد التأكد من صحة البيانات، قم بالتنزيل
                 info_dict = ydl.extract_info(youtube_url, download=True)
                 title = info_dict.get('title', 'audio')
                 mp3_file_path = os.path.join(DOWNLOAD_FOLDER, f"{title}.mp3")
