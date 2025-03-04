@@ -13,4 +13,4 @@ requiredFiles = [".replit", "replit.nix"]
 [deployment]
 run = ["sh", "-c", "python main.py"]
 deploymentTarget = "cloudrun"
-build = ["sh", "-c", "pip install --upgrade yt-dlp python-telegram-bot"]
+build = ["sh", "-c", "pip install --upgrade yt-dlp python-telegram-bot ffmpeg-python"]
