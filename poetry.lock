@@ -175,6 +175,17 @@ files = [
 ]
 
 [[package]]
+name = "youtube-dl"
+version = "2021.12.17"
+description = "YouTube video downloader"
+optional = false
+python-versions = "*"
+files = [
+    {file = "youtube_dl-2021.12.17-py2.py3-none-any.whl", hash = "sha256:f1336d5de68647e0364a47b3c0712578e59ec76f02048ff5c50ef1c69d79cd55"},
+    {file = "youtube_dl-2021.12.17.tar.gz", hash = "sha256:bc59e86c5d15d887ac590454511f08ce2c47698d5a82c27bfe27b5d814bbaed2"},
+]
+
+[[package]]
 name = "yt-dlp"
 version = "2025.2.19"
 description = "A feature-rich command-line audio/video downloader"
@@ -198,4 +209,4 @@ test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10.0,<3.12"
-content-hash = "7a167099ffbd3fe74c25843d1a1edbd53c316a8a1949e25519d8de4a19b0b67a"
+content-hash = "e2bf428a5d327072ac00e788c1c67eeb4d2c5790c5b0f6b6d377951265f45bce"
