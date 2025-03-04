@@ -1,7 +1,9 @@
 import sys
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+# استخدام python-telegram-bot بدلاً من telegram
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
+from telegram.ext._utils.types import BD, BT, CD, UD
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 
 # إعداد التسجيل للأخطاء
 logging.basicConfig(
@@ -80,8 +82,12 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
                 'merge_output_format': 'mp4',
                 'noplaylist': True,
-                'quiet': True,
-                'no_warnings': True
+                'quiet': False,
+                'no_warnings': False,
+                'ignoreerrors': True,
+                'geo_bypass': True,
+                'nocheckcertificate': True,
+                'cookiefile': None
             }
 
             with YoutubeDL(ydl_opts) as ydl:
@@ -104,8 +110,18 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             os.remove(video_file_path)
 
         except Exception as e:
-            logger.error(f"خطأ في معالجة رابط YouTube: {e}")
-            await status_message.edit_text("حدث خطأ أثناء معالجة رابط YouTube. يرجى المحاولة مرة أخرى.")
+            error_msg = str(e)
+            logger.error(f"خطأ في معالجة رابط YouTube: {error_msg}")
+            
+            # تقديم رسالة خطأ مفصلة للمستخدم
+            if "geo-restriction" in error_msg.lower():
+                await status_message.edit_text("هذا الفيديو غير متاح في منطقتك بسبب قيود جغرافية.")
+            elif "private video" in error_msg.lower():
+                await status_message.edit_text("هذا فيديو خاص غير متاح للتنزيل.")
+            elif "copyright" in error_msg.lower():
+                await status_message.edit_text("هذا الفيديو محمي بحقوق النشر ولا يمكن تنزيله.")
+            else:
+                await status_message.edit_text(f"حدث خطأ أثناء معالجة رابط YouTube:\n{error_msg[:200]}...\nيرجى المحاولة برابط آخر.")
     else:
         await update.message.reply_text("يرجى تقديم رابط YouTube صالح.")
 
@@ -129,8 +145,12 @@ async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_T
                     'preferredquality': '320',
                 }],
                 'noplaylist': True,
-                'quiet': True,
-                'no_warnings': True
+                'quiet': False,
+                'no_warnings': False,
+                'ignoreerrors': True,
+                'geo_bypass': True,
+                'nocheckcertificate': True,
+                'cookiefile': None
             }
 
             with YoutubeDL(ydl_opts) as ydl:
