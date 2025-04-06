@@ -14,3 +14,7 @@ requiredFiles = [".replit", "replit.nix"]
 run = ["sh", "-c", "python main.py"]
 deploymentTarget = "cloudrun"
 build = ["sh", "-c", "pip install --upgrade yt-dlp python-telegram-bot ffmpeg-python"]
+
+[[ports]]
+localPort = 8080
+externalPort = 80
