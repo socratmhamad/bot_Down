@@ -3,11 +3,6 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 from yt_dlp import YoutubeDL
 import os
 import logging
-Import block is un-sorted or un-formatted
-
-
-
-
 
 TOKEN = '6767447234:AAHODYTwpqlNl0mbeGLK9qAtgKVHfHC0e40'
 DOWNLOAD_FOLDER = 'downloads'  # Specify your download folder
@@ -88,35 +83,44 @@ async def download_video(update: Update,
 async def convert_video_to_audio(update: Update,
                                  context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
-    youtube_url = update.message.text  # Get the YouTube link from the message
+    youtube_url = update.message.text
 
     if 'youtube.com' in youtube_url or 'youtu.be' in youtube_url:
         try:
             ydl_opts = {
-                'format':
-                'bestaudio/best',
-                'outtmpl':
-                os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
+                'format': 'bestaudio/best',
+                'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
                     'preferredquality': '320',
                 }],
+                'keepvideo': False,  # تأكد من عدم حفظ الفيديو
+                'quiet': True,
+                'no_warnings': True,
             }
 
             with YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(youtube_url, download=True)
-                mp3_file_path = ydl.prepare_filename(info_dict).replace(
-                    '.webm', '.mp3').replace('.m4a', '.mp3')
+                original_filename = ydl.prepare_filename(info_dict)
+                mp3_file_path = os.path.splitext(original_filename)[0] + '.mp3'
 
-            await context.bot.send_audio(chat_id=chat_id,
-                                         audio=open(mp3_file_path, 'rb'))
-            os.remove(mp3_file_path)
+                # تأكد من وجود الملف قبل الإرسال
+                if os.path.exists(mp3_file_path):
+                    await context.bot.send_chat_action(chat_id, action='upload_audio')
+                    await context.bot.send_audio(
+                        chat_id=chat_id,
+                        audio=open(mp3_file_path, 'rb'),
+                        title=info_dict.get('title', 'audio'),
+                        performer=info_dict.get('uploader', 'unknown')
+                    )
+                    os.remove(mp3_file_path)
+                else:
+                    await update.message.reply_text("Error: Failed to convert video to audio.")
 
         except Exception as e:
             logging.error(f"Error processing YouTube link: {e}")
-            await update.message.reply_text(
-                "Error processing YouTube link. Please try again.")
+            await update.message.reply_text(f"Error processing YouTube link: {str(e)}")
     else:
         await update.message.reply_text("Please provide a valid YouTube link.")
 
@@ -137,5 +141,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
-
