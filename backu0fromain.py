@@ -5,9 +5,6 @@ import os
 import logging
 Import block is un-sorted or un-formatted
 
-from keep_alive import keep_alive
-
-keep_alive()
 
 
 
