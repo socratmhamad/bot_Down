@@ -92,22 +92,83 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 'geo_bypass': True,
                 'nocheckcertificate': True,
                 'cookiefile': None,
-                'extractor_retries': 3,  # محاولات استخراج إضافية
-                'socket_timeout': 30,  # زيادة مهلة الانتظار
-                'concurrent_fragment_downloads': 1  # لتجنب مشاكل التنزيل المتزامن
+                'extractor_retries': 5,  # زيادة محاولات الاستخراج
+                'socket_timeout': 60,  # زيادة مهلة الانتظار
+                'concurrent_fragment_downloads': 1,  # لتجنب مشاكل التنزيل المتزامن
+                'external_downloader_args': ['--proxy', ''],  # تجنب استخدام البروكسي الافتراضي
+                'force_ipv4': True,  # إجبار استخدام IPv4
+                'source_address': '0.0.0.0',  # إجبار استخدام DNS عام - هذا مهم لبيئة Replit
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                },
+                'extractor': 'youtube'  # استخدام مستخرج يوتيوب بشكل صريح
             }
 
-            with YoutubeDL(ydl_opts) as ydl:
-                # استخدم extract_info مع verbose=True لطباعة المزيد من المعلومات
-                info_dict = ydl.extract_info(youtube_url, download=False)
+            try:
+                # محاولة أولى - استراتيجية 1
+                with YoutubeDL(ydl_opts) as ydl:
+                    # استخدم extract_info مع verbose=True لطباعة المزيد من المعلومات
+                    info_dict = ydl.extract_info(youtube_url, download=False)
+                    
+                    if info_dict is None:
+                        raise Exception("فشل في استخراج معلومات الفيديو")
+                    
+                    # بعد التأكد من صحة البيانات، قم بالتنزيل
+                    info_dict = ydl.extract_info(youtube_url, download=True)
+                    video_file_path = ydl.prepare_filename(info_dict)
+            except Exception as e:
+                # محاولة ثانية - استراتيجية 2
+                logger.warning(f"فشلت المحاولة الأولى: {str(e)}")
                 
-                if info_dict is None:
-                    raise Exception("فشل في استخراج معلومات الفيديو")
-                
-                # بعد التأكد من صحة البيانات، قم بالتنزيل
-                info_dict = ydl.extract_info(youtube_url, download=True)
-                video_file_path = ydl.prepare_filename(info_dict)
-                
+                try:
+                    # تعديل الخيارات للمحاولة الثانية
+                    ydl_opts['format'] = 'best'  # تبسيط الصيغة
+                    ydl_opts['force_generic_extractor'] = True  # استخدام مستخرج عام
+                    ydl_opts['youtube_include_dash_manifest'] = False  # تعطيل DASH
+                    ydl_opts['cachedir'] = False  # تعطيل الكاش
+                    
+                    with YoutubeDL(ydl_opts) as ydl:
+                        info_dict = ydl.extract_info(youtube_url, download=True)
+                        if info_dict is None:
+                            raise Exception("فشل في استخراج معلومات الفيديو حتى مع المحاولة الثانية")
+                        video_file_path = ydl.prepare_filename(info_dict)
+                except Exception as e2:
+                    # محاولة ثالثة - استراتيجية 3
+                    logger.warning(f"فشلت المحاولة الثانية: {str(e2)}")
+                    
+                    try:
+                        # تغيير استراتيجية الاستخراج تماماً
+                        ydl_opts['extract_flat'] = True  # استخراج سطحي
+                        ydl_opts['skip_download'] = False
+                        ydl_opts['format'] = 'worstvideo+worstaudio/worst'  # محاولة تنزيل أقل جودة
+                        
+                        with YoutubeDL(ydl_opts) as ydl:
+                            info_dict = ydl.extract_info(youtube_url, download=True)
+                            if info_dict is None:
+                                raise Exception("فشل في استخراج معلومات الفيديو")
+                            
+                            video_file_path = ydl.prepare_filename(info_dict)
+                            
+                            # التحقق من وجود الملف
+                            if not os.path.exists(video_file_path):
+                                # البحث عن الملف المناسب
+                                for file in os.listdir(DOWNLOAD_FOLDER):
+                                    if file.endswith('.mp4'):
+                                        video_file_path = os.path.join(DOWNLOAD_FOLDER, file)
+                                        break
+                    except Exception as e3:
+                        # فشلت جميع المحاولات
+                        logger.error(f"فشلت جميع محاولات التنزيل: {str(e3)}")
+                        raise Exception(f"تعذر تنزيل الفيديو بعد عدة محاولات. قد يكون السبب قيود الاستضافة على Replit أو مشكلة في الرابط.")
+                    
                 # التحقق من وجود الملف فعلياً
                 if not os.path.exists(video_file_path):
                     raise Exception(f"لم يتم العثور على الملف: {video_file_path}")
@@ -132,14 +193,26 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             logger.error(f"خطأ في معالجة رابط YouTube: {error_msg}")
             
             # تقديم رسالة خطأ مفصلة للمستخدم
-            if "geo-restriction" in error_msg.lower():
+            if "403" in error_msg or "Forbidden" in error_msg or "proxy" in error_msg.lower():
+                await status_message.edit_text("خطأ في الوصول لخدمة يوتيوب. بسبب قيود الاستضافة في Replit، قد تكون خدمة يوتيوب محجوبة. حاول استخدام رابط فيديو آخر.")
+            elif "Unable to extract" in error_msg or "extractor" in error_msg.lower() or "Failed to extract" in error_msg:
+                await status_message.edit_text("لم يستطع البوت استخراج معلومات الفيديو بسبب قيود الاستضافة. جرب استخدام رابط آخر أو فيديو أصغر حجما.")
+            elif "geo-restriction" in error_msg.lower():
                 await status_message.edit_text("هذا الفيديو غير متاح في منطقتك بسبب قيود جغرافية.")
             elif "private video" in error_msg.lower():
                 await status_message.edit_text("هذا فيديو خاص غير متاح للتنزيل.")
             elif "copyright" in error_msg.lower():
                 await status_message.edit_text("هذا الفيديو محمي بحقوق النشر ولا يمكن تنزيله.")
+            elif "sign in" in error_msg.lower() or "login" in error_msg.lower():
+                await status_message.edit_text("هذا الفيديو يتطلب تسجيل الدخول لمشاهدته ولا يمكن تنزيله.")
+            elif "premiere" in error_msg.lower():
+                await status_message.edit_text("هذا بث مباشر أو فيديو premiere غير متاح للتنزيل حاليًا.")
+            elif "unsupported URL" in error_msg:
+                await status_message.edit_text("الرابط غير صالح أو غير مدعوم. تأكد من إرسال رابط يوتيوب صحيح.")
+            elif "unavailable" in error_msg.lower():
+                await status_message.edit_text("هذا الفيديو غير متاح للمشاهدة أو التنزيل حاليًا.")
             else:
-                await status_message.edit_text(f"حدث خطأ أثناء معالجة رابط YouTube:\n{error_msg[:200]}...\nيرجى المحاولة برابط آخر.")
+                await status_message.edit_text(f"حدث خطأ أثناء معالجة رابط YouTube:\n{error_msg[:100]}...\nيرجى المحاولة برابط آخر أو استخدام فيديو أقصر.")
     else:
         await update.message.reply_text("يرجى تقديم رابط YouTube صالح.")
 
@@ -168,18 +241,41 @@ async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_T
                 'ignoreerrors': True,
                 'geo_bypass': True,
                 'nocheckcertificate': True,
-                'cookiefile': None
+                'cookiefile': None,
+                'extractor_retries': 5,
+                'socket_timeout': 60,
+                'external_downloader_args': ['--proxy', ''],
+                'force_ipv4': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-us,en;q=0.5',
+                },
+                'extractor': 'youtube'
             }
 
-            with YoutubeDL(ydl_opts) as ydl:
-                # التحقق من معلومات الفيديو أولاً قبل التنزيل
-                info_dict = ydl.extract_info(youtube_url, download=False)
+            try:
+                with YoutubeDL(ydl_opts) as ydl:
+                    # التحقق من معلومات الفيديو أولاً قبل التنزيل
+                    info_dict = ydl.extract_info(youtube_url, download=False)
+                    
+                    if info_dict is None:
+                        raise Exception("فشل في استخراج معلومات الفيديو")
+                    
+                    # بعد التأكد من صحة البيانات، قم بالتنزيل
+                    info_dict = ydl.extract_info(youtube_url, download=True)
+            except Exception as e:
+                # محاولة بخيارات بديلة
+                logger.warning(f"فشلت المحاولة الأولى للتحويل: {e}")
                 
-                if info_dict is None:
-                    raise Exception("فشل في استخراج معلومات الفيديو")
+                # تعديل الخيارات للمحاولة الثانية
+                ydl_opts['format'] = 'bestaudio'  # تبسيط الصيغة
+                ydl_opts['force_generic_extractor'] = True  # استخدام مستخرج عام
                 
-                # بعد التأكد من صحة البيانات، قم بالتنزيل
-                info_dict = ydl.extract_info(youtube_url, download=True)
+                with YoutubeDL(ydl_opts) as ydl:
+                    info_dict = ydl.extract_info(youtube_url, download=True)
+                    if info_dict is None:
+                        raise Exception("فشل في استخراج معلومات الفيديو حتى مع المحاولة الثانية")
                 title = info_dict.get('title', 'audio')
                 mp3_file_path = os.path.join(DOWNLOAD_FOLDER, f"{title}.mp3")
                 
@@ -227,3 +323,15 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
+
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is alive!"
+
+# تشغيل السيرفر في الخلفية
+import threading
+threading.Thread(target=app.run, kwargs={'host':'0.0.0.0','port':8080}).start()
