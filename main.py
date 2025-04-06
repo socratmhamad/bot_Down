@@ -332,6 +332,10 @@ app = Flask(__name__)
 def home():
     return "Bot is alive!"
 
-# تشغيل السيرفر في الخلفية
-import threading
-threading.Thread(target=app.run, kwargs={'host':'0.0.0.0','port':8080}).start()
+if __name__ == '__main__':
+    # Start Flask server first
+    import threading
+    threading.Thread(target=app.run, kwargs={'host':'0.0.0.0','port':8080}).start()
+    
+    # Then start the Telegram bot
+    main()
