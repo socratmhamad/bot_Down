@@ -325,17 +325,11 @@ if __name__ == '__main__':
     main()
 
 
-from flask import Flask
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is alive!"
+from keep_alive import keep_alive
 
 if __name__ == '__main__':
     # Start Flask server first
-    import threading
-    threading.Thread(target=app.run, kwargs={'host':'0.0.0.0','port':8080}).start()
+    keep_alive()
     
     # Then start the Telegram bot
     main()
