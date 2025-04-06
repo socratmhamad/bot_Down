@@ -6,11 +6,20 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "✅ البوت يعمل! <a href='https://t.me/YourBot'>اضغط هنا للدردشة مع البوت</a>"
+    return """
+    <h1 style="text-align: center; font-family: Arial; margin-top: 50px;">
+        ✅ البوت يعمل بنجاح!
+    </h1>
+    <div style="text-align: center;">
+        <a href="https://t.me/YourBot" style="text-decoration: none; color: #0088cc; font-family: Arial;">
+            اضغط هنا للدردشة مع البوت
+        </a>
+    </div>
+    """
 
 def run():
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=False)
 
 def keep_alive():
-    t = Thread(target=run)
-    t.start()
+    server = Thread(target=run)
+    server.start()

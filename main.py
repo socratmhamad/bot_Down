@@ -328,8 +328,5 @@ if __name__ == '__main__':
 from keep_alive import keep_alive
 
 if __name__ == '__main__':
-    # Start Flask server first
-    keep_alive()
-    
-    # Then start the Telegram bot
-    main()
+    keep_alive()  # تشغيل خادم Flask
+    main()  # تشغيل بوت التلغرام
