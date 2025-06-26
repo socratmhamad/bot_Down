@@ -1,0 +1,144 @@
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
+from yt_dlp import YoutubeDL
+import os
+import logging
+
+# إعداد السجلات
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+TOKEN = '6767447234:AAHODYTwpqlNl0mbeGLK9qAtgKVHfHC0e40'
+DOWNLOAD_FOLDER = 'downloads'
+
+# إنشاء مجلد التنزيلات إذا لم يكن موجوداً
+if not os.path.exists(DOWNLOAD_FOLDER):
+    os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    keyboard = [[
+        InlineKeyboardButton("تنزيل الفيديو", callback_data='download_video'),
+        InlineKeyboardButton("تحويل إلى صوت", callback_data='convert_video_to_audio'),
+    ]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text('اختر الخيار المطلوب:', reply_markup=reply_markup)
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == 'download_video':
+        await query.message.reply_text('أرسل رابط اليوتيوب لتنزيل الفيديو.')
+        context.user_data['action'] = 'download_video'
+    elif query.data == 'convert_video_to_audio':
+        await query.message.reply_text('أرسل رابط اليوتيوب لتحويله إلى صوت.')
+        context.user_data['action'] = 'convert_video_to_audio'
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_action = context.user_data.get('action')
+
+    if user_action == 'download_video':
+        await download_video(update, context)
+    elif user_action == 'convert_video_to_audio':
+        await convert_video_to_audio(update, context)
+    else:
+        await update.message.reply_text('الرجاء اختيار خيار من الأزرار.')
+
+async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.message.chat_id
+    youtube_url = update.message.text
+
+    if 'youtube.com' in youtube_url or 'youtu.be' in youtube_url:
+        try:
+            await update.message.reply_text('جاري تنزيل الفيديو...')
+
+            ydl_opts = {
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
+                'merge_output_format': 'mp4',
+                'postprocessors': [{
+                    'key': 'FFmpegVideoConvertor',
+                    'preferedformat': 'mp4',
+                }],
+                'quiet': True,
+                'no_warnings': True,
+            }
+
+            with YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(youtube_url, download=True)
+                video_file_path = ydl.prepare_filename(info_dict)
+
+            await update.message.reply_text('جاري إرسال الفيديو...')
+            await context.bot.send_chat_action(chat_id, action='upload_video')
+            await context.bot.send_video(
+                chat_id=chat_id,
+                video=open(video_file_path, 'rb'),
+                caption=info_dict.get('title', 'فيديو')
+            )
+            os.remove(video_file_path)
+
+        except Exception as e:
+            logging.error(f"Error downloading video: {e}")
+            await update.message.reply_text(f"حدث خطأ أثناء تنزيل الفيديو: {str(e)}")
+    else:
+        await update.message.reply_text("الرجاء إرسال رابط يوتيوب صحيح.")
+
+async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.message.chat_id
+    youtube_url = update.message.text
+
+    if 'youtube.com' in youtube_url or 'youtu.be' in youtube_url:
+        try:
+            await update.message.reply_text('جاري تحويل الفيديو إلى صوت...')
+
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '320',
+                }],
+                'keepvideo': False,
+                'quiet': True,
+                'no_warnings': True,
+            }
+
+            with YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(youtube_url, download=True)
+                original_filename = ydl.prepare_filename(info_dict)
+                mp3_file_path = os.path.splitext(original_filename)[0] + '.mp3'
+
+                if os.path.exists(mp3_file_path):
+                    await update.message.reply_text('جاري إرسال الملف الصوتي...')
+                    await context.bot.send_chat_action(chat_id, action='upload_audio')
+                    await context.bot.send_audio(
+                        chat_id=chat_id,
+                        audio=open(mp3_file_path, 'rb'),
+                        title=info_dict.get('title', 'صوت'),
+                        performer=info_dict.get('uploader', 'غير معروف'),
+                        duration=info_dict.get('duration', 0)
+                    )
+                    os.remove(mp3_file_path)
+                else:
+                    await update.message.reply_text("حدث خطأ أثناء تحويل الفيديو إلى صوت.")
+
+        except Exception as e:
+            logging.error(f"Error converting to audio: {e}")
+            await update.message.reply_text(f"حدث خطأ أثناء التحويل إلى صوت: {str(e)}")
+    else:
+        await update.message.reply_text("الرجاء إرسال رابط يوتيوب صحيح.")
+
+def main() -> None:
+    application = ApplicationBuilder().token(TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button_handler))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    application.run_polling()
+
+if __name__ == '__main__':
+    main()
