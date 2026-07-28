@@ -17,7 +17,7 @@ import logging
 import subprocess
 import tempfile
 
-TOKEN = ''
+TOKEN = '6767447234:AAEXzLikJxLTvxcXM1YhMTKCIXlpmaFI2RM'
 DOWNLOAD_FOLDER = 'downloads'  # مجلد التنزيلات
 
 # إنشاء مجلد التنزيلات إذا لم يكن موجودًا
